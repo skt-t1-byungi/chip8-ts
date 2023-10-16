@@ -1,6 +1,22 @@
 // CHIP-8 Emulator
 
-type ScreenBuffer = Set<{ x: number; y: number }>
+class ScreenBuffer {
+    #buffer = new Set<string>()
+    toggle(x: number, y: number, value = !this.#buffer.has(`${x},${y}`)) {
+        const pos = `${x},${y}`
+        if (value) {
+            this.#buffer.add(pos)
+        } else {
+            this.#buffer.delete(pos)
+        }
+    }
+    *[Symbol.iterator]() {
+        for (const pos of this.#buffer) {
+            const [x, y] = pos.split(',').map(Number)
+            yield { x, y }
+        }
+    }
+}
 
 class Renderer {
     static readonly SCALE = 10
@@ -26,12 +42,12 @@ class Renderer {
     }
 }
 
-const screenBuffer = new Set<{ x: number; y: number }>()
+const screenBuffer = new ScreenBuffer()
 const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElement, screenBuffer)
 
-screenBuffer.add({ x: 63, y: 0 })
-screenBuffer.add({ x: 63, y: 1 })
-screenBuffer.add({ x: 63, y: 31 })
-screenBuffer.add({ x: 63, y: 30 })
+screenBuffer.toggle(0, 0)
+screenBuffer.toggle(0, 1)
+screenBuffer.toggle(0, 3)
+screenBuffer.toggle(0, 6)
 
 renderer.render()
