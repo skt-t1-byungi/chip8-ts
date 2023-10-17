@@ -22,9 +22,9 @@ export class CPU {
     }
     cycle() {
         const ir = new IR((this.#memory[this.#pc++] << 8) | this.#memory[this.#pc++])
-        switch (ir.opcode) {
+        switch (ir.type) {
             case 0x00_00: {
-                if (ir.NNN === 0x0e0) {
+                if (ir.NNN === 0x00_e0) {
                     this.#screen.clear()
                 }
                 break
@@ -39,6 +39,21 @@ export class CPU {
             }
             case 0xa0_00: {
                 this.#i = ir.NNN
+                break
+            }
+            case 0xd0_00: {
+                const x = this.#v[ir.X]
+                const y = this.#v[ir.Y]
+                const height = ir.N
+                for (let i = 0; i < height; i++) {
+                    const unit = this.#memory[this.#i + i]
+                    console.log('draw', x, y, height, this.#i, i, unit.toString(2).padStart(8, '0'))
+                    for (let j = 0; j < 8; j++) {
+                        if (unit & (0b1000_0000 >> j) && this.#screen.xor(x + j, y + i)) {
+                            this.#v[0xf] = 1
+                        }
+                    }
+                }
                 break
             }
             default:
@@ -76,20 +91,22 @@ export class IR {
     get Y() {
         return (this.#raw & 0x00_f0) >> 4
     }
-    get opcode() {
+    get type() {
         return this.#raw & 0xf0_00
     }
 }
 
 export class ScreenBuffer {
     #set = new Set<string>()
-    toggle(x: number, y: number, value = !this.#set.has(`${x},${y}`)) {
+    xor(x: number, y: number) {
         const pos = `${x},${y}`
-        if (value) {
-            this.#set.add(pos)
-        } else {
+        const collision = this.#set.has(pos)
+        if (collision) {
             this.#set.delete(pos)
+        } else {
+            this.#set.add(pos)
         }
+        return collision
     }
     clear() {
         this.#set.clear()

@@ -4,9 +4,9 @@ const screenBuffer = new ScreenBuffer()
 const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElement, screenBuffer)
 
 const cpu = new CPU(screenBuffer)
-screenBuffer.toggle(0, 0)
-screenBuffer.toggle(1, 1)
-screenBuffer.toggle(2, 2)
+screenBuffer.xor(0, 0)
+screenBuffer.xor(1, 1)
+screenBuffer.xor(2, 2)
 renderer.render()
 
 setTimeout(() => {
