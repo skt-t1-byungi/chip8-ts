@@ -1,16 +1,19 @@
 import { ScreenBuffer, Renderer, CPU } from './chip8'
+import fs from 'fs'
+
+const testRom = fs.readFileSync(__dirname + '/../roms/IBM.ch8')
 
 const screenBuffer = new ScreenBuffer()
 const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElement, screenBuffer)
 
 const cpu = new CPU(screenBuffer)
-screenBuffer.xor(0, 0)
-screenBuffer.xor(1, 1)
-screenBuffer.xor(2, 2)
-renderer.render()
+cpu.load(testRom)
 
-setTimeout(() => {
-    cpu.load(new Uint8Array([0x00, 0xe0]))
-    cpu.cycle()
+let cycles = testRom.length / 2
+try {
+    while (cycles--) {
+        cpu.cycle()
+    }
+} finally {
     renderer.render()
-}, 500)
+}

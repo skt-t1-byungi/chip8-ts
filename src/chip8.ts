@@ -56,7 +56,7 @@ export class CPU {
                 break
             }
             default:
-                throw new Error(`Unknown opcode(${ir}) or not implemented`)
+                throw new Error(`Unknown opcode(${ir.raw}) or not implemented`)
         }
     }
     get debug() {
@@ -92,6 +92,9 @@ export class IR {
     }
     get type() {
         return this.#raw & 0xf0_00
+    }
+    get raw() {
+        return this.#raw
     }
 }
 
