@@ -47,7 +47,6 @@ export class CPU {
                 const height = ir.N
                 for (let i = 0; i < height; i++) {
                     const unit = this.#memory[this.#i + i]
-                    console.log('draw', x, y, height, this.#i, i, unit.toString(2).padStart(8, '0'))
                     for (let j = 0; j < 8; j++) {
                         if (unit & (0b1000_0000 >> j) && this.#screen.xor(x + j, y + i)) {
                             this.#v[0xf] = 1
