@@ -3,11 +3,16 @@
     "description": "Chip8 emulator written in TypeScript",
     "scripts": {
         "start": "parcel src/index.html",
-        "build": "parcel build src/index.html"
+        "build": "parcel build src/index.html",
+        "test": "tsx src/test.ts",
+        "testw": "tsx watch src/test.ts "
     },
     "devDependencies": {
-        "prettier": "^3.0.3",
+        "@types/tape": "^5.6.1",
+        "ava": "^5.3.1",
         "parcel": "^2.10.0",
+        "prettier": "^3.0.3",
+        "tsx": "^3.13.0",
         "typescript": "^5.2.2"
     },
     "prettier": {
