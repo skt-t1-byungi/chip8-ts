@@ -1,12 +1,16 @@
-import { ScreenBuffer, Renderer, CPU } from './chip8'
+import { Screen, Renderer, CPU, Keyboard, Timer } from './chip8'
 import fs from 'fs'
 
 const testRom = fs.readFileSync(__dirname + '/../roms/IBM.ch8')
 
-const screenBuffer = new ScreenBuffer()
-const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElement, screenBuffer)
+const screen = new Screen()
+const keyboard = new Keyboard()
+const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElement, screen)
 
-const cpu = new CPU(screenBuffer)
+const cpu = new CPU({
+    screen,
+    keyboard,
+})
 cpu.load(testRom)
 
 let cycles = 40

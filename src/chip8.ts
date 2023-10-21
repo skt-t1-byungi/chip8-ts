@@ -6,9 +6,14 @@ export class CPU {
     #v = new Uint8Array(16)
     #i = 0
     #stack = [] as number[]
-    #screen: ScreenBuffer
-    constructor(screen: ScreenBuffer) {
+    #screen: Screen
+    #keyboard: Keyboard
+    #delayTimer = new Timer()
+    #soundTimer = new Timer()
+
+    constructor({ screen, keyboard }: { screen: Screen; keyboard: Keyboard }) {
         this.#screen = screen
+        this.#keyboard = keyboard
     }
     reset() {
         this.#pc = 0x200
@@ -99,10 +104,31 @@ export class CPU {
                         this.#v[ir.X] >>= 1
                         return
                     }
+                    case 0x7: {
+                        const n = this.#v[ir.Y] - this.#v[ir.X]
+                        this.#v[0xf] = (this.#v[ir.X] = n & 0xff) === n ? 1 : 0
+                        return
+                    }
+                    case 0xe: {
+                        this.#v[0xf] = (this.#v[ir.X] & 0x80) >> 7
+                        this.#v[ir.X] <<= 1
+                        return
+                    }
                 }
+            }
+            case 0x90_00: {
+                if (this.#v[ir.X] !== this.#v[ir.Y]) this.#pc += 2
+                return
             }
             case 0xa0_00: {
                 this.#i = ir.NNN
+                return
+            }
+            case 0xb0_00: {
+                this.#pc = ir.NNN + this.#v[0]
+            }
+            case 0xc0_00: {
+                this.#v[ir.X] = Math.floor(Math.random() * 0xff) & ir.NN
                 return
             }
             case 0xd0_00: {
@@ -119,6 +145,52 @@ export class CPU {
                 }
                 return
             }
+            case 0xe0_00: {
+                switch (ir.NN) {
+                    case 0x9e: {
+                        if (this.#keyboard.isPressed(this.#v[ir.X])) this.#pc += 2
+                        return
+                    }
+                    case 0xa1: {
+                        if (!this.#keyboard.isPressed(this.#v[ir.X])) this.#pc += 2
+                        return
+                    }
+                }
+            }
+            case 0xf0_00: {
+                switch (ir.NN) {
+                    case 0x07: {
+                        this.#v[ir.X] = this.#delayTimer.value
+                        return
+                    }
+                    case 0x0a: {
+                        return this.#keyboard.waitKey().then(key => {
+                            this.#v[ir.X] = key
+                            this.#pc += 2
+                        })
+                    }
+                    case 0x15: {
+                        this.#delayTimer.value = this.#v[ir.X]
+                        return
+                    }
+                    case 0x18: {
+                        this.#soundTimer.value = this.#v[ir.X]
+                        return
+                    }
+                    case 0x1e: {
+                        this.#i += this.#v[ir.X]
+                        return
+                    }
+                    case 0x29: {
+                    }
+                    case 0x33: {
+                    }
+                    case 0x55: {
+                    }
+                    case 0x65: {
+                    }
+                }
+            }
         }
         throw new Error(`Unknown opcode ${ir.raw.toString(16)}`)
     }
@@ -129,6 +201,8 @@ export class CPU {
             i: this.#i,
             stack: this.#stack,
             memory: this.#memory,
+            delayTimer: this.#delayTimer,
+            soundTimer: this.#soundTimer,
         }
     }
 }
@@ -161,7 +235,31 @@ export class IR {
     }
 }
 
-export class ScreenBuffer {
+export class Keyboard {
+    #set = new Set<number>()
+    #listeners = [] as ((key: number) => void)[]
+    isPressed(key: number) {
+        return this.#set.has(key)
+    }
+    press(key: number) {
+        this.#listeners.splice(0).forEach(l => l(key))
+        this.#set.add(key)
+    }
+    release(key: number) {
+        this.#set.delete(key)
+    }
+    waitKey() {
+        return new Promise<number>(resolve => {
+            if (this.#set.size > 0) {
+                resolve(this.#set.values().next().value)
+                return
+            }
+            this.#listeners.push(resolve)
+        })
+    }
+}
+
+export class Screen {
     #set = new Set<string>()
     xor(x: number, y: number) {
         const pos = `${x},${y}`
@@ -183,11 +281,31 @@ export class ScreenBuffer {
     }
 }
 
+export class Timer {
+    #timer = 0
+    #tid: ReturnType<typeof setInterval> | null = null
+    constructor() {}
+    get value() {
+        return this.#timer
+    }
+    set value(value: number) {
+        this.#timer = value
+        if (this.#tid && value === 0) {
+            clearInterval(this.#tid)
+            this.#tid = null
+            return
+        }
+        if (!this.#tid && value > 0) {
+            this.#tid = setInterval(() => this.value--, 1000 / 60)
+        }
+    }
+}
+
 export class Renderer {
     static readonly SCALE = 10
     #canvas: HTMLCanvasElement
-    #buffer: ScreenBuffer
-    constructor(canvas: HTMLCanvasElement, buffer: ScreenBuffer) {
+    #buffer: Screen
+    constructor(canvas: HTMLCanvasElement, buffer: Screen) {
         this.#canvas = canvas
         this.#buffer = buffer
         this.#canvas.width = 64 * Renderer.SCALE
