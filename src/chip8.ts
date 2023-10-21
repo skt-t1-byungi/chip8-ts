@@ -5,7 +5,7 @@ export class CPU {
     #pc = 0x200
     #v = new Uint8Array(16)
     #i = 0
-    #stack = new Uint16Array(16)
+    #stack = [] as number[]
     #screen: ScreenBuffer
     constructor(screen: ScreenBuffer) {
         this.#screen = screen
@@ -24,40 +24,103 @@ export class CPU {
         const ir = new IR((this.#memory[this.#pc++] << 8) | this.#memory[this.#pc++])
         switch (ir.type) {
             case 0x00_00: {
-                if (ir.NNN === 0x00_e0) {
-                    this.#screen.clear()
+                switch (ir.NNN) {
+                    case 0xe0:
+                        this.#screen.clear()
+                        return
+                    case 0xee:
+                        if (this.#stack.length === 0) {
+                            throw new Error('Stack underflow')
+                        }
+                        this.#pc = this.#stack.pop()!
+                        return
                 }
-                break
+                return // void
+            }
+            case 0x10_00: {
+                this.#pc = ir.NNN
+                return
+            }
+            case 0x20_00: {
+                this.#stack.push(this.#pc)
+                this.#pc = ir.NNN
+                return
+            }
+            case 0x30_00: {
+                if (this.#v[ir.X] === ir.NN) this.#pc += 2
+                return
+            }
+            case 0x40_00: {
+                if (this.#v[ir.X] !== ir.NN) this.#pc += 2
+                return
+            }
+            case 0x50_00: {
+                if (this.#v[ir.X] === this.#v[ir.Y]) this.#pc += 2
+                return
             }
             case 0x60_00: {
                 this.#v[ir.X] = ir.NN
-                break
+                return
             }
             case 0x70_00: {
                 this.#v[ir.X] += ir.NN
-                break
+                return
+            }
+            case 0x80_00: {
+                switch (ir.N) {
+                    case 0x0: {
+                        this.#v[ir.X] = this.#v[ir.Y]
+                        return
+                    }
+                    case 0x1: {
+                        this.#v[ir.X] |= this.#v[ir.Y]
+                        return
+                    }
+                    case 0x2: {
+                        this.#v[ir.X] &= this.#v[ir.Y]
+                        return
+                    }
+                    case 0x3: {
+                        this.#v[ir.X] ^= this.#v[ir.Y]
+                        return
+                    }
+                    case 0x4: {
+                        const n = this.#v[ir.X] + this.#v[ir.Y]
+                        this.#v[0xf] = (this.#v[ir.X] = n & 0xff) === n ? 0 : 1
+                        return
+                    }
+                    case 0x5: {
+                        const n = this.#v[ir.X] - this.#v[ir.Y]
+                        this.#v[0xf] = (this.#v[ir.X] = n & 0xff) === n ? 1 : 0
+                        return
+                    }
+                    case 0x6: {
+                        this.#v[0xf] = this.#v[ir.X] & 0x1
+                        this.#v[ir.X] >>= 1
+                        return
+                    }
+                }
             }
             case 0xa0_00: {
                 this.#i = ir.NNN
-                break
+                return
             }
             case 0xd0_00: {
                 const x = this.#v[ir.X]
                 const y = this.#v[ir.Y]
                 const height = ir.N
                 for (let i = 0; i < height; i++) {
-                    const unit = this.#memory[this.#i + i]
+                    const px = this.#memory[this.#i + i]
                     for (let j = 0; j < 8; j++) {
-                        if (unit & (0b1000_0000 >> j) && this.#screen.xor(x + j, y + i)) {
+                        if (px & (0b1000_0000 >> j) && this.#screen.xor(x + j, y + i)) {
                             this.#v[0xf] = 1
                         }
                     }
                 }
-                break
+                return
             }
-            default:
-                throw new Error(`Unknown opcode(${ir.raw}) or not implemented`)
         }
+        throw new Error(`Unknown opcode ${ir.raw.toString(16)}`)
     }
     get debug() {
         return {

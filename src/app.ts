@@ -9,7 +9,7 @@ const renderer = new Renderer(document.querySelector('canvas') as HTMLCanvasElem
 const cpu = new CPU(screenBuffer)
 cpu.load(testRom)
 
-let cycles = testRom.length / 2
+let cycles = 40
 try {
     while (cycles--) {
         cpu.cycle()
