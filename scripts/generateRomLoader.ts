@@ -12,6 +12,7 @@ const roms = fs
         name,
         path: path.relative(path.dirname(DIST_PATH), `${ROMS_DIR}/${name}`),
     }))
+console.log(`Found "${roms.length}" ROMs`)
 
 fs.writeFileSync(
     DIST_PATH,
@@ -31,3 +32,4 @@ fs.writeFileSync(
     }`,
 )
 cp.execSync(`npx prettier --write ${DIST_PATH}`)
+console.log('Done!')

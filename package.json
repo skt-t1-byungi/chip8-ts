@@ -7,7 +7,7 @@
         "test": "tsx src/test.ts",
         "testw": "tsx watch src/test.ts",
         "deploy": "rm -rf dist && npm run build && gh-pages -d dist",
-        "gen:loadRom": "tsx scripts/generateLoadRomFile.ts",
+        "gen:loader": "tsx scripts/generateRomLoader.ts",
         "clean": "rm -rf dist"
     },
     "devDependencies": {
