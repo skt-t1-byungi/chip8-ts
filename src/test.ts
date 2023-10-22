@@ -1,8 +1,9 @@
 import assert from 'node:assert'
-import test, { mock } from 'node:test'
+import test from 'node:test'
 import { CPU, Keyboard, Screen, Timer } from './chip8'
 
 // https://en.wikipedia.org/wiki/CHIP-8
+
 test('00E0', () => {
     assert.deepEqual([...run([0x00, 0xe0]).screen], [])
 })
@@ -325,45 +326,47 @@ test('EXA1', () => {
     assert.equal(cpu.debug.v[1], 0x02)
 })
 test('Timer ', async t => {
-    mock.timers.enable()
     await t.test('FX15', () => {
         // prettier-ignore
-        const { cpu } = run([
+        const { delayTimer } = run([
             0x60, 0x01, // v[0] = 0x01
             0xf0, 0x15, // timers.delay = v[0]
         ])
-        assert.equal(cpu.debug.delayTimer.value, 0x01)
+        assert.equal(delayTimer.value, 0x01)
     })
     await t.test('FX18', () => {
         // prettier-ignore
-        const { cpu } = run([
+        const { soundTimer } = run([
             0x60, 0x01, // v[0] = 0x01
             0xf0, 0x18, // timers.sound = v[0]
         ])
-        assert.equal(cpu.debug.soundTimer.value, 0x01)
+        assert.equal(soundTimer.value, 0x01)
     })
     await t.test('FX07', () => {
         // prettier-ignore
-        const { cpu, next } = run([
+        const { cpu, next, delayTimer } = run([
             0x60, 0x05, // v[0] = 0x05
             0xf0, 0x15, // timers.delay = v[0]
             0xf0, 0x07, // v[0] = timers.delay
         ], 2)
         assert.equal(cpu.debug.v[0], 0x05)
-        mock.timers.tick(1000 / 60)
-        mock.timers.runAll()
+        delayTimer.tick()
         next(1)
         assert.equal(cpu.debug.v[0], 0x04)
     })
-    mock.timers.reset()
 })
 test('FX0A', async () => {
     // prettier-ignore
     const { cpu, keyboard, next } = run([
         0xf0, 0x0a, // v[0] = keyboard.wait()
     ], 0)
+    assert.equal(cpu.debug.v[0], 0)
+    assert.equal(cpu.debug.pc, 0x200) // blocked
+    next(1)
+    assert.equal(cpu.debug.pc, 0x200) // blocked
     keyboard.press(1)
-    await next()
+    next(1)
+    assert.equal(cpu.debug.pc, 0x202)
     assert.equal(cpu.debug.v[0], 1)
 })
 test('FX1E', () => {
@@ -377,19 +380,60 @@ test('FX1E', () => {
     next()
     assert.equal(cpu.debug.i, 0x02)
 })
-test.todo('FX29', () => {})
+test('FX29', () => {
+    // prettier-ignore
+    const { cpu } = run([
+        0x60, 0x01, // v[0] = 0x01
+        0xf0, 0x29, // i = sprite(v[0])
+    ])
+    assert.equal(cpu.debug.i, 0x05)
+})
+test('FX33', () => {
+    // prettier-ignore
+    const { cpu } = run([
+        0xa2, 0x04, // i = 0x204
+        0x60, 123, // v[0] = 123
+        0xf0, 0x33, // bcd(v[0])
+    ])
+    assert.deepEqual([...cpu.debug.memory.subarray(0x204, 0x207)], [1, 2, 3])
+})
+test('FX55', () => {
+    // prettier-ignore
+    const { cpu } = run([
+        0xa2, 0x20, // i = 0x220
+        0x60, 0x01, // v[0] = 0x01
+        0x61, 0x02, // v[1] = 0x02
+        0x62, 0x03, // v[2] = 0x03
+        0xf2, 0x55, // mem[i..i+x] = v[0..x]
+    ])
+    assert.deepEqual([...cpu.debug.memory.subarray(0x220, 0x224)], [1, 2, 3, 0])
+})
+test('FX65', () => {
+    // prettier-ignore
+    const { cpu } = run([
+        0xa2, 0x12, // i = 0x212
+        0x60, 0x01, // v[0] = 0x01
+        0x61, 0x02, // v[1] = 0x02
+        0x62, 0x03, // v[2] = 0x03
+        0xf1, 0x65, // v[0..x] = mem[i..i+x]
+        0x60, 0x04, // v[0] = 0x04
+        0x61, 0x05 // v[1] = 0x05
+    ])
+    assert.deepEqual([...cpu.debug.v.subarray(0, 3)], [4, 5, 3])
+})
 
 function run(program: Uint8Array | number[], cycles = program.length / 2) {
     const screen = new Screen()
     const keyboard = new Keyboard()
-    const cpu = new CPU({ screen, keyboard })
+    const soundTimer = new Timer()
+    const delayTimer = new Timer()
+    const cpu = new CPU({ screen, keyboard, delayTimer, soundTimer })
     cpu.load(new Uint8Array(program))
     next(cycles)
-    return { next, cpu, screen, keyboard }
+    return { next, cpu, screen, keyboard, soundTimer, delayTimer }
     async function next(cycles = program.length / 2) {
         while (cycles--) {
-            const wait = cpu.cycle()
-            if (wait) await wait
+            cpu.cycle()
         }
     }
 }

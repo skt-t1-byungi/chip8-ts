@@ -8,6 +8,17 @@
         <script src="./app.ts" type="module" defer></script>
     </head>
     <body>
+        <div id="tools">
+            <label>
+                ROMS:
+                <select id="roms"></select>
+            </label>
+            <label>
+                Speed:
+                <input id="speed" type="number" value="1.5" min="0.25" max="5" step="0.25" />
+            </label>
+            <button id="rerun">RERUN</button>
+        </div>
         <canvas></canvas>
     </body>
 </html>

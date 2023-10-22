@@ -1,4 +1,22 @@
-// CHIP-8 emulator
+// prettier-ignore
+const FONT_SET = [
+    0xf0, 0x90, 0x90, 0x90, 0xf0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xf0, 0x10, 0xf0, 0x80, 0xf0, // 2
+    0xf0, 0x10, 0xf0, 0x10, 0xf0, // 3
+    0x90, 0x90, 0xf0, 0x10, 0x10, // 4
+    0xf0, 0x80, 0xf0, 0x10, 0xf0, // 5
+    0xf0, 0x80, 0xf0, 0x90, 0xf0, // 6
+    0xf0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xf0, 0x90, 0xf0, 0x90, 0xf0, // 8
+    0xf0, 0x90, 0xf0, 0x10, 0xf0, // 9
+    0xf0, 0x90, 0xf0, 0x90, 0x90, // a
+    0xe0, 0x90, 0xe0, 0x90, 0xe0, // b
+    0xf0, 0x80, 0x80, 0x80, 0xf0, // c
+    0xe0, 0x90, 0x90, 0x90, 0xe0, // d
+    0xf0, 0x80, 0xf0, 0x80, 0xf0, // e
+    0xf0, 0x80, 0xf0, 0x80, 0x80, // f
+]
 
 export class CPU {
     #memory = new Uint8Array(4096)
@@ -8,19 +26,30 @@ export class CPU {
     #stack = [] as number[]
     #screen: Screen
     #keyboard: Keyboard
-    #delayTimer = new Timer()
-    #soundTimer = new Timer()
-
-    constructor({ screen, keyboard }: { screen: Screen; keyboard: Keyboard }) {
+    #delayTimer: Timer
+    #soundTimer: Timer
+    constructor({
+        screen,
+        keyboard,
+        delayTimer,
+        soundTimer,
+    }: {
+        screen: Screen
+        keyboard: Keyboard
+        delayTimer: Timer
+        soundTimer: Timer
+    }) {
         this.#screen = screen
         this.#keyboard = keyboard
+        this.#delayTimer = delayTimer
+        this.#soundTimer = soundTimer
     }
     reset() {
         this.#pc = 0x200
         this.#v.fill(0)
         this.#i = 0
         this.#stack.fill(0)
-        this.#memory.fill(0)
+        this.#memory.fill(0).set(FONT_SET, 0)
     }
     load(program: Uint8Array) {
         this.#memory.set(program, 0x200)
@@ -164,10 +193,13 @@ export class CPU {
                         return
                     }
                     case 0x0a: {
-                        return this.#keyboard.waitKey().then(key => {
-                            this.#v[ir.X] = key
-                            this.#pc += 2
-                        })
+                        const key = this.#keyboard.getPressedKey()
+                        if (!key) {
+                            this.#pc -= 2 // for blocking
+                            return
+                        }
+                        this.#v[ir.X] = key
+                        return
                     }
                     case 0x15: {
                         this.#delayTimer.value = this.#v[ir.X]
@@ -182,12 +214,21 @@ export class CPU {
                         return
                     }
                     case 0x29: {
+                        this.#i = this.#v[ir.X] * 5
+                        return
                     }
                     case 0x33: {
+                        const n = this.#v[ir.X]
+                        this.#memory.set([Math.floor(n / 100), Math.floor(n / 10) % 10, n % 10], this.#i)
+                        return
                     }
                     case 0x55: {
+                        this.#memory.set(this.#v.subarray(0, ir.X + 1), this.#i)
+                        return
                     }
                     case 0x65: {
+                        this.#v.set(this.#memory.subarray(this.#i, this.#i + ir.X + 1), 0)
+                        return
                     }
                 }
             }
@@ -201,8 +242,6 @@ export class CPU {
             i: this.#i,
             stack: this.#stack,
             memory: this.#memory,
-            delayTimer: this.#delayTimer,
-            soundTimer: this.#soundTimer,
         }
     }
 }
@@ -237,25 +276,17 @@ export class IR {
 
 export class Keyboard {
     #set = new Set<number>()
-    #listeners = [] as ((key: number) => void)[]
     isPressed(key: number) {
         return this.#set.has(key)
     }
+    getPressedKey() {
+        return this.#set.values().next().value
+    }
     press(key: number) {
-        this.#listeners.splice(0).forEach(l => l(key))
         this.#set.add(key)
     }
     release(key: number) {
         this.#set.delete(key)
-    }
-    waitKey() {
-        return new Promise<number>(resolve => {
-            if (this.#set.size > 0) {
-                resolve(this.#set.values().next().value)
-                return
-            }
-            this.#listeners.push(resolve)
-        })
     }
 }
 
@@ -282,22 +313,15 @@ export class Screen {
 }
 
 export class Timer {
-    #timer = 0
-    #tid: ReturnType<typeof setInterval> | null = null
-    constructor() {}
+    #value = 0
     get value() {
-        return this.#timer
+        return this.#value
     }
     set value(value: number) {
-        this.#timer = value
-        if (this.#tid && value === 0) {
-            clearInterval(this.#tid)
-            this.#tid = null
-            return
-        }
-        if (!this.#tid && value > 0) {
-            this.#tid = setInterval(() => this.value--, 1000 / 60)
-        }
+        this.#value = Math.max(0, value)
+    }
+    tick() {
+        --this.value
     }
 }
 
