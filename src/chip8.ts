@@ -48,7 +48,7 @@ export class CPU {
         this.#pc = 0x200
         this.#v.fill(0)
         this.#i = 0
-        this.#stack.fill(0)
+        this.#stack = []
         this.#memory.fill(0).set(FONT_SET, 0)
     }
     load(program: Uint8Array) {
@@ -155,14 +155,16 @@ export class CPU {
             }
             case 0xb0_00: {
                 this.#pc = ir.NNN + this.#v[0]
+                return
             }
             case 0xc0_00: {
-                this.#v[ir.X] = Math.floor(Math.random() * 0xff) & ir.NN
+                this.#v[ir.X] = Math.floor(Math.random() * 0x100) & ir.NN
                 return
             }
             case 0xd0_00: {
-                const x = this.#v[ir.X]
-                const y = this.#v[ir.Y]
+                this.#v[0xf] = 0
+                const x = this.#v[ir.X] % 64
+                const y = this.#v[ir.Y] % 32
                 const height = ir.N
                 for (let i = 0; i < height; i++) {
                     const px = this.#memory[this.#i + i]
