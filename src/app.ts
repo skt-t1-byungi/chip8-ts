@@ -34,13 +34,13 @@ const KEYMAP = {
     z: 0xa, x: 0, c: 0xb, v: 0xf,
 } as Record<string, number>
 
-addEventListener('keyup', e => {
-    const key = KEYMAP[e.key]
-    if (key) keyboard.press(key)
-})
 addEventListener('keydown', e => {
     const key = KEYMAP[e.key]
-    if (key) keyboard.release(key)
+    if (key !== undefined) keyboard.press(key)
+})
+addEventListener('keyup', e => {
+    const key = KEYMAP[e.key]
+    if (key !== undefined) keyboard.release(key)
 })
 
 let tid: ReturnType<typeof setTimeout> | null = null

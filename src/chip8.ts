@@ -196,7 +196,7 @@ export class CPU {
                     }
                     case 0x0a: {
                         const key = this.#keyboard.getPressedKey()
-                        if (!key) {
+                        if (key === undefined) {
                             this.#pc -= 2 // for blocking
                             return
                         }
